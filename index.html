@@ -343,6 +343,7 @@ Return ONLY a valid JSON object with this EXACT structure (no markdown fences ar
               };
 
               setCurrentPlan(formattedPlan);
+              setGroceryChecked({});
               const updatedHistory = [formattedPlan, ...savedPlans];
               setSavedPlans(updatedHistory);
               localStorage.setItem("ai_diet_plans", JSON.stringify(updatedHistory));
@@ -360,6 +361,7 @@ Return ONLY a valid JSON object with this EXACT structure (no markdown fences ar
         setTimeout(() => {
           const fallbackPlan = generateFallbackPlan(profileData);
           setCurrentPlan(fallbackPlan);
+          setGroceryChecked({});
           const updatedHistory = [fallbackPlan, ...savedPlans];
           setSavedPlans(updatedHistory);
           localStorage.setItem("ai_diet_plans", JSON.stringify(updatedHistory));
@@ -453,6 +455,54 @@ Current User Context: Goal=${currentPlan?.profile?.goal || 'Health'}, Weight=${c
         };
       };
 
+      // Download Selected (or All) Grocery Items
+      const handleDownloadGrocery = (onlySelected = true) => {
+        if (!currentPlan) return;
+
+        const categorized = getCategorizedGrocery();
+        let fileContent = `AI HEALTH & DIET TRACKER - GROCERY LIST\n`;
+        fileContent += `Plan: ${currentPlan.profile.goal} (${currentPlan.profile.dietaryRestrictions || "Standard"})\n`;
+        fileContent += `Generated: ${new Date().toLocaleDateString()}\n`;
+        fileContent += `==========================================\n\n`;
+
+        let totalIncluded = 0;
+
+        Object.entries(categorized).forEach(([category, items]) => {
+          const filteredItems = onlySelected
+            ? items.filter(item => groceryChecked[item])
+            : items;
+
+          if (filteredItems.length > 0) {
+            fileContent += `[ ${category.toUpperCase()} ]\n`;
+            filteredItems.forEach(item => {
+              const mark = groceryChecked[item] ? "[x]" : "[ ]";
+              fileContent += `${mark} ${item}\n`;
+              totalIncluded++;
+            });
+            fileContent += `\n`;
+          }
+        });
+
+        if (totalIncluded === 0) {
+          setStatusNotice("Please select at least one item to download!");
+          setTimeout(() => setStatusNotice(""), 3000);
+          return;
+        }
+
+        const blob = new Blob([fileContent], { type: "text/plain;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = onlySelected ? "Selected_Grocery_List.txt" : "Full_Grocery_List.txt";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        setStatusNotice(`Downloaded ${totalIncluded} grocery item${totalIncluded > 1 ? "s" : ""}!`);
+        setTimeout(() => setStatusNotice(""), 3000);
+      };
+
       const handleDeletePlan = (id, e) => {
         e.stopPropagation();
         const filtered = savedPlans.filter(p => p.id !== id);
@@ -462,6 +512,13 @@ Current User Context: Goal=${currentPlan?.profile?.goal || 'Health'}, Weight=${c
           setCurrentPlan(filtered[0] || null);
         }
       };
+
+      // Calculate count of currently selected items in the active plan
+      const selectedGroceryCount = currentPlan
+        ? Object.values(getCategorizedGrocery())
+            .flat()
+            .filter(item => groceryChecked[item]).length
+        : 0;
 
       return (
         <div className="min-h-screen flex flex-col bg-slate-50">
@@ -706,57 +763,58 @@ Current User Context: Goal=${currentPlan?.profile?.goal || 'Health'}, Weight=${c
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
                     {[
                       { label: "Daily Calories", val: `${currentPlan.summary.calories} kcal`, icon: "flame", color: "text-amber-600 bg-amber-50" },
-                      { label: "Protein Target", val: `${currentPlan.summary.protein}g`, icon: "dumbbell", color: "text-emerald-600 bg-emerald-50" },
-                      { label: "Carbohydrates", val: `${currentPlan.summary.carbs}g`, icon: "wheat", color: "text-blue-600 bg-blue-50" },
+                      { label: "Protein Target", val: `${currentPlan.summary.protein}g`, icon: "dumbbell", color: "text-blue-600 bg-blue-50" },
+                      { label: "Carbohydrates", val: `${currentPlan.summary.carbs}g`, icon: "wheat", color: "text-emerald-600 bg-emerald-50" },
                       { label: "Healthy Fats", val: `${currentPlan.summary.fats}g`, icon: "droplet", color: "text-purple-600 bg-purple-50" },
                       { label: "Water Intake", val: `${currentPlan.summary.waterLiters} L`, icon: "glass-water", color: "text-cyan-600 bg-cyan-50" }
                     ].map((stat, i) => (
-                      <div key={i} className="glass-card rounded-xl p-4 shadow-sm border border-slate-200 flex flex-col justify-between">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${stat.color} mb-3`}>
-                          <Icon name={stat.icon} size={18} />
+                      <div key={i} className="glass-card rounded-2xl p-4 shadow-sm flex flex-col justify-between">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-bold text-slate-500 uppercase">{stat.label}</span>
+                          <div className={`p-2 rounded-xl ${stat.color}`}>
+                            <Icon name={stat.icon} size={18} />
+                          </div>
                         </div>
-                        <div>
-                          <div className="text-xs font-semibold text-slate-500">{stat.label}</div>
-                          <div className="text-lg sm:text-xl font-extrabold text-slate-900 mt-0.5">{stat.val}</div>
-                        </div>
+                        <span className="text-xl sm:text-2xl font-extrabold text-slate-900">{stat.val}</span>
                       </div>
                     ))}
                   </div>
 
-                  {/* Meals Grid */}
-                  <div>
-                    <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center space-x-2">
+                  {/* Meals List */}
+                  <div className="space-y-4">
+                    <h3 className="text-xl font-bold text-slate-900 flex items-center space-x-2">
                       <Icon name="utensils" size={20} className="text-emerald-600" />
                       <span>Daily Meal Schedule</span>
                     </h3>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {(currentPlan.meals || []).map((meal, index) => (
-                        <div key={index} className="glass-card rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col justify-between">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {currentPlan.meals.map((meal, idx) => (
+                        <div key={idx} className="glass-card rounded-2xl p-6 shadow-sm flex flex-col justify-between border border-slate-200 hover:border-emerald-300 transition">
                           <div>
                             <div className="flex items-center justify-between mb-3">
-                              <span className="text-xs font-bold uppercase tracking-wider px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-lg">
-                                {meal.type} ({meal.time})
+                              <span className="px-3 py-1 bg-emerald-50 text-emerald-800 text-xs font-bold rounded-full">
+                                {meal.type} • {meal.time}
                               </span>
-                              <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg">
+                              <span className="text-xs font-extrabold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg">
                                 {meal.calories} kcal
                               </span>
                             </div>
-
-                            <h4 className="text-lg font-bold text-slate-900 mb-2">{meal.name}</h4>
-
-                            <div className="flex space-x-3 text-xs font-semibold text-slate-600 mb-4">
-                              <span className="bg-slate-100 px-2.5 py-1 rounded-md">Protein: {meal.protein}</span>
-                              <span className="bg-slate-100 px-2.5 py-1 rounded-md">Carbs: {meal.carbs}</span>
-                              <span className="bg-slate-100 px-2.5 py-1 rounded-md">Fats: {meal.fats}</span>
+                            <h4 className="text-base sm:text-lg font-bold text-slate-900 mb-2">{meal.name}</h4>
+                            
+                            <div className="flex items-center space-x-3 text-xs font-semibold text-slate-600 mb-4 bg-slate-50 p-2.5 rounded-xl">
+                              <span>P: <strong className="text-slate-900">{meal.protein}</strong></span>
+                              <span>•</span>
+                              <span>C: <strong className="text-slate-900">{meal.carbs}</strong></span>
+                              <span>•</span>
+                              <span>F: <strong className="text-slate-900">{meal.fats}</strong></span>
                             </div>
 
-                            <div>
-                              <div className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Ingredients & Components:</div>
+                            <div className="space-y-1.5">
+                              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Ingredients:</span>
                               <div className="flex flex-wrap gap-1.5">
-                                {(meal.ingredients || []).map((ing, idx) => (
-                                  <span key={idx} className="text-xs bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg font-medium">
-                                    • {ing}
+                                {(meal.ingredients || []).map((ing, iIdx) => (
+                                  <span key={iIdx} className="text-xs bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg font-medium">
+                                    {ing}
                                   </span>
                                 ))}
                               </div>
@@ -767,16 +825,16 @@ Current User Context: Goal=${currentPlan?.profile?.goal || 'Health'}, Weight=${c
                     </div>
                   </div>
 
-                  {/* Daily Nutrition Coach Tips */}
+                  {/* Pro Tips */}
                   {currentPlan.tips && currentPlan.tips.length > 0 && (
                     <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-6">
-                      <h3 className="text-base font-bold text-emerald-900 mb-3 flex items-center space-x-2">
-                        <Icon name="lightbulb" size={18} className="text-emerald-700" />
-                        <span>Coach Recommendations & Success Habits</span>
-                      </h3>
+                      <h4 className="font-bold text-emerald-900 text-base mb-3 flex items-center space-x-2">
+                        <Icon name="lightbulb" size={20} className="text-emerald-700" />
+                        <span>AI Nutritionist Pro Tips</span>
+                      </h4>
                       <ul className="space-y-2">
-                        {currentPlan.tips.map((tip, idx) => (
-                          <li key={idx} className="text-sm font-medium text-emerald-800 flex items-start space-x-2">
+                        {currentPlan.tips.map((tip, tIdx) => (
+                          <li key={tIdx} className="flex items-start space-x-2 text-sm text-emerald-800 font-medium">
                             <span className="text-emerald-600 font-bold">•</span>
                             <span>{tip}</span>
                           </li>
@@ -788,7 +846,7 @@ Current User Context: Goal=${currentPlan?.profile?.goal || 'Health'}, Weight=${c
                 </div>
               ) : (
                 <div className="text-center py-16">
-                  <p className="text-slate-500 mb-4">No active diet plan found.</p>
+                  <p className="text-slate-500 font-medium mb-4">No active diet plan found.</p>
                   <button
                     onClick={() => setActiveTab("generator")}
                     className="px-6 py-3 bg-emerald-600 text-white font-bold rounded-xl shadow-md"
@@ -799,28 +857,36 @@ Current User Context: Goal=${currentPlan?.profile?.goal || 'Health'}, Weight=${c
               )
             )}
 
-            {/* 3. AI NUTRITIONIST COACH CHATBOT */}
+            {/* 3. AI COACH CHATBOT VIEW */}
             {activeTab === "chat" && (
-              <div className="max-w-3xl mx-auto flex flex-col h-[75vh] glass-card rounded-2xl shadow-xl overflow-hidden border border-slate-200">
-                <div className="bg-emerald-800 text-white px-6 py-4 flex items-center justify-between">
+              <div className="max-w-3xl mx-auto flex flex-col h-[75vh] glass-card rounded-2xl shadow-xl overflow-hidden">
+                <div className="bg-slate-900 text-white p-4 px-6 flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <div className="w-9 h-9 rounded-xl bg-emerald-700 flex items-center justify-center text-white">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center text-white">
                       <Icon name="bot" size={20} />
                     </div>
                     <div>
-                      <h3 className="font-bold text-base">Gemini Nutritionist Coach</h3>
-                      <p className="text-xs text-emerald-200">Online & ready to answer your diet & fitness questions</p>
+                      <h3 className="font-bold text-base">Gemini 1.5 Nutrition Coach</h3>
+                      <p className="text-xs text-slate-400">Ready for meal swaps & macro adjustments</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-4 custom-scrollbar">
-                  {chatMessages.map((msg, i) => (
-                    <div key={i} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 text-sm font-medium ${
+                <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 custom-scrollbar">
+                  {chatMessages.map((msg, index) => (
+                    <div
+                      key={index}
+                      className={`flex items-start space-x-3 ${msg.sender === "user" ? "flex-row-reverse space-x-reverse" : ""}`}
+                    >
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                        msg.sender === "user" ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-700"
+                      }`}>
+                        <Icon name={msg.sender === "user" ? "user" : "bot"} size={16} />
+                      </div>
+                      <div className={`max-w-[80%] p-4 rounded-2xl text-sm font-medium ${
                         msg.sender === "user"
-                          ? "bg-emerald-600 text-white rounded-br-sm"
-                          : "bg-white text-slate-800 border border-slate-200 shadow-sm rounded-bl-sm"
+                          ? "bg-emerald-600 text-white rounded-tr-none"
+                          : "bg-slate-100 text-slate-800 rounded-tl-none border border-slate-200"
                       }`}>
                         {msg.text}
                       </div>
@@ -828,9 +894,12 @@ Current User Context: Goal=${currentPlan?.profile?.goal || 'Health'}, Weight=${c
                   ))}
 
                   {isChatThinking && (
-                    <div className="flex justify-start">
-                      <div className="bg-white text-slate-500 border border-slate-200 shadow-sm rounded-2xl rounded-bl-sm px-4 py-3 text-sm flex items-center space-x-2">
-                        <Icon name="loader-2" size={16} className="animate-spin text-emerald-600" />
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 rounded-xl bg-slate-200 text-slate-700 flex items-center justify-center">
+                        <Icon name="bot" size={16} />
+                      </div>
+                      <div className="bg-slate-100 p-3 rounded-2xl text-xs text-slate-500 flex items-center space-x-2">
+                        <Icon name="loader-2" size={16} className="animate-spin" />
                         <span>Coach is thinking...</span>
                       </div>
                     </div>
@@ -838,17 +907,17 @@ Current User Context: Goal=${currentPlan?.profile?.goal || 'Health'}, Weight=${c
                   <div ref={chatEndRef} />
                 </div>
 
-                <form onSubmit={handleSendChatMessage} className="p-4 bg-white border-t border-slate-200 flex items-center space-x-3">
+                <form onSubmit={handleSendChatMessage} className="p-4 bg-white border-t border-slate-200 flex items-center space-x-2">
                   <input
                     type="text"
-                    placeholder="Ask about meal substitutes, snacks, or macro adjustments..."
+                    placeholder="Ask about meal swaps, calories, or recipes..."
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
-                    className="flex-1 px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none transition text-sm font-medium"
+                    className="flex-1 px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none text-sm font-medium"
                   />
                   <button
                     type="submit"
-                    className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition flex items-center justify-center shadow-md"
+                    className="p-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-md transition"
                   >
                     <Icon name="send" size={18} />
                   </button>
@@ -856,36 +925,73 @@ Current User Context: Goal=${currentPlan?.profile?.goal || 'Health'}, Weight=${c
               </div>
             )}
 
-            {/* 4. GROCERY CHECKLIST VIEW */}
+            {/* 4. GROCERY LIST VIEW */}
             {activeTab === "grocery" && (
               <div className="max-w-3xl mx-auto space-y-6">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
                     <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">Grocery Checklist</h2>
-                    <p className="text-slate-600 text-sm mt-1">Consolidated ingredient shopping list based on your active diet plan.</p>
+                    <p className="text-slate-600 text-sm mt-1">Select the items you need, then download your customized list.</p>
                   </div>
+
+                  {currentPlan && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {selectedGroceryCount > 0 && (
+                        <button
+                          onClick={() => setGroceryChecked({})}
+                          className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition flex items-center space-x-1.5"
+                          title="Clear all selections"
+                        >
+                          <Icon name="rotate-ccw" size={14} />
+                          <span>Clear</span>
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => handleDownloadGrocery(true)}
+                        disabled={selectedGroceryCount === 0}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-sm ${
+                          selectedGroceryCount > 0
+                            ? "bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+                            : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
+                        }`}
+                      >
+                        <Icon name="download" size={15} />
+                        <span>Download Selected ({selectedGroceryCount})</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleDownloadGrocery(false)}
+                        className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition flex items-center space-x-1.5"
+                        title="Download entire grocery list"
+                      >
+                        <Icon name="file-text" size={15} />
+                        <span>Download All</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {currentPlan ? (
                   <div className="space-y-6">
-                    {Object.entries(getCategorizedGrocery()).map(([category, items], idx) => (
+                    {Object.entries(getCategorizedGrocery()).map(([category, items], cIdx) => (
                       items.length > 0 && (
-                        <div key={idx} className="glass-card rounded-2xl p-6 shadow-sm border border-slate-200">
-                          <h3 className="font-bold text-base text-emerald-800 mb-4 pb-2 border-b border-slate-100 flex items-center space-x-2">
+                        <div key={cIdx} className="glass-card rounded-2xl p-6 shadow-sm">
+                          <h3 className="font-bold text-base text-emerald-800 mb-4 flex items-center space-x-2">
                             <Icon name="shopping-bag" size={18} />
                             <span>{category}</span>
                           </h3>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {items.map((item, itemIdx) => {
-                              const isChecked = !!groceryChecked[item];
+                            {items.map((item, iIdx) => {
+                              const isChecked = groceryChecked[item] || false;
                               return (
                                 <div
-                                  key={itemIdx}
-                                  onClick={() => setGroceryChecked(prev => ({ ...prev, [item]: !prev[item] }))}
+                                  key={iIdx}
+                                  onClick={() => setGroceryChecked(prev => ({ ...prev, [item]: !isChecked }))}
                                   className={`flex items-center space-x-3 p-3 rounded-xl border cursor-pointer transition ${
                                     isChecked
-                                      ? "bg-slate-100 border-slate-200 text-slate-400 line-through"
-                                      : "bg-slate-50 border-slate-200 text-slate-800 hover:bg-emerald-50/50"
+                                      ? "bg-emerald-50/70 border-emerald-400 text-emerald-950"
+                                      : "bg-slate-50 border-slate-200 text-slate-800 hover:border-emerald-300"
                                   }`}
                                 >
                                   <div className={`w-5 h-5 rounded-lg border flex items-center justify-center transition ${
@@ -903,66 +1009,61 @@ Current User Context: Goal=${currentPlan?.profile?.goal || 'Health'}, Weight=${c
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-12 glass-card rounded-2xl">
-                    <p className="text-slate-500 mb-4">No active diet plan to generate groceries.</p>
-                    <button onClick={() => setActiveTab("generator")} className="px-5 py-2.5 bg-emerald-600 text-white font-bold rounded-xl text-sm">
-                      Create Diet Plan
-                    </button>
+                  <div className="text-center py-16 glass-card rounded-2xl">
+                    <p className="text-slate-500 font-medium">Please generate a diet plan first to view your grocery checklist.</p>
                   </div>
                 )}
               </div>
             )}
 
-            {/* 5. HISTORY & SAVED PLANS */}
+            {/* 5. HISTORY VIEW */}
             {activeTab === "history" && (
               <div className="max-w-3xl mx-auto space-y-6">
                 <div>
                   <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">Saved Diet Plans</h2>
-                  <p className="text-slate-600 text-sm mt-1">Review or switch between your previously generated meal blueprints.</p>
+                  <p className="text-slate-600 text-sm mt-1">Review or switch between your previously generated meal plans.</p>
                 </div>
 
                 <div className="space-y-4">
                   {savedPlans.length > 0 ? (
-                    savedPlans.map((plan) => (
+                    savedPlans.map(plan => (
                       <div
                         key={plan.id}
                         onClick={() => {
                           setCurrentPlan(plan);
+                          setGroceryChecked({});
                           setActiveTab("plan");
                         }}
-                        className={`glass-card rounded-2xl p-6 shadow-sm border cursor-pointer transition flex items-center justify-between ${
-                          currentPlan?.id === plan.id ? "border-emerald-500 ring-2 ring-emerald-500/20" : "border-slate-200 hover:border-slate-300"
+                        className={`glass-card rounded-2xl p-6 shadow-sm cursor-pointer border transition flex items-center justify-between ${
+                          currentPlan?.id === plan.id ? "border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-50/30" : "border-slate-200 hover:border-emerald-300"
                         }`}
                       >
-                        <div className="space-y-1">
-                          <div className="flex items-center space-x-2">
-                            <span className="font-extrabold text-lg text-slate-900">{plan.profile.goal} Blueprint</span>
+                        <div>
+                          <div className="flex items-center space-x-2 mb-1">
+                            <span className="font-extrabold text-lg text-slate-900">{plan.profile.goal}</span>
                             {currentPlan?.id === plan.id && (
-                              <span className="text-xs font-bold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full">Active</span>
+                              <span className="text-xs bg-emerald-600 text-white font-bold px-2 py-0.5 rounded-full">Active</span>
                             )}
                           </div>
-                          <p className="text-xs text-slate-500">
-                            Created on {plan.date} • {plan.profile.weight} kg • {plan.summary.calories} kcal/day • {plan.profile.dietaryRestrictions || "Standard"}
+                          <p className="text-xs text-slate-500 font-medium">
+                            Created on {plan.date} • {plan.summary.calories} kcal/day • {plan.profile.dietaryRestrictions || "Standard"}
                           </p>
                         </div>
 
                         <div className="flex items-center space-x-2">
                           <button
                             onClick={(e) => handleDeletePlan(plan.id, e)}
-                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition"
+                            className="p-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition"
                             title="Delete Plan"
                           >
-                            <Icon name="trash-2" size={18} />
+                            <Icon name="trash-2" size={16} />
                           </button>
                         </div>
                       </div>
                     ))
                   ) : (
-                    <div className="text-center py-12 glass-card rounded-2xl">
-                      <p className="text-slate-500 mb-4">No saved history found.</p>
-                      <button onClick={() => setActiveTab("generator")} className="px-5 py-2.5 bg-emerald-600 text-white font-bold rounded-xl text-sm">
-                        Generate First Plan
-                      </button>
+                    <div className="text-center py-16 glass-card rounded-2xl">
+                      <p className="text-slate-500 font-medium">No saved plans in your history.</p>
                     </div>
                   )}
                 </div>
@@ -973,42 +1074,44 @@ Current User Context: Goal=${currentPlan?.profile?.goal || 'Health'}, Weight=${c
 
           {/* --- API KEY CONFIGURATION MODAL --- */}
           {showKeyModal && (
-            <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-              <div className="glass-card rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-5">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-extrabold text-slate-900 flex items-center space-x-2">
-                    <Icon name="key" size={20} className="text-emerald-600" />
-                    <span>Gemini API Key Configuration</span>
-                  </h3>
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+              <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-2">
+                    <div className="p-2 rounded-xl bg-emerald-100 text-emerald-800">
+                      <Icon name="key" size={20} />
+                    </div>
+                    <h3 className="font-extrabold text-lg text-slate-900">Gemini API Key</h3>
+                  </div>
                   <button onClick={() => setShowKeyModal(false)} className="text-slate-400 hover:text-slate-600">
                     <Icon name="x" size={20} />
                   </button>
                 </div>
 
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Enter your Google Gemini API key to enable live AI meal generation and conversational coaching. If left blank, the app will run on its built-in local fallback engine.
+                <p className="text-xs text-slate-600 mb-4 leading-relaxed">
+                  Enter your Google Gemini API key to enable live AI-generated diet plans and conversational coaching. If left blank, the app runs on its built-in offline nutrition engine.
                 </p>
 
                 <form onSubmit={handleSaveApiKey} className="space-y-4">
                   <input
                     type="password"
-                    placeholder="AIzaSy..."
+                    placeholder="Paste Gemini API Key (AIzaSy...)"
                     value={tempApiKey}
                     onChange={(e) => setTempApiKey(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none text-sm font-mono"
+                    className="w-full px-3.5 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none text-sm font-mono text-slate-800"
                   />
 
-                  <div className="flex space-x-3">
+                  <div className="flex items-center justify-end space-x-3 pt-2">
                     <button
                       type="button"
                       onClick={() => setShowKeyModal(false)}
-                      className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition"
+                      className="px-4 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl text-xs font-bold transition"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition shadow-md"
+                      className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md transition"
                     >
                       Save Key
                     </button>
@@ -1022,7 +1125,7 @@ Current User Context: Goal=${currentPlan?.profile?.goal || 'Health'}, Weight=${c
       );
     }
 
-    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    ReactDOM.render(<App />, document.getElementById("root"));
   </script>
 </body>
 </html>
