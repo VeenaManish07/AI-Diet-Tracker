@@ -13,6 +13,8 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- jsPDF Library for PDF Export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
     body {
@@ -455,17 +457,50 @@ Current User Context: Goal=${currentPlan?.profile?.goal || 'Health'}, Weight=${c
         };
       };
 
-      // Download Selected (or All) Grocery Items
-      const handleDownloadGrocery = (onlySelected = true) => {
+      // Download Selected (or All) Grocery Items as a Formatted PDF
+      const handleDownloadGroceryPDF = (onlySelected = true) => {
         if (!currentPlan) return;
 
         const categorized = getCategorizedGrocery();
-        let fileContent = `AI HEALTH & DIET TRACKER - GROCERY LIST\n`;
-        fileContent += `Plan: ${currentPlan.profile.goal} (${currentPlan.profile.dietaryRestrictions || "Standard"})\n`;
-        fileContent += `Generated: ${new Date().toLocaleDateString()}\n`;
-        fileContent += `==========================================\n\n`;
-
         let totalIncluded = 0;
+
+        Object.entries(categorized).forEach(([category, items]) => {
+          const filtered = onlySelected ? items.filter(i => groceryChecked[i]) : items;
+          totalIncluded += filtered.length;
+        });
+
+        if (totalIncluded === 0) {
+          setStatusNotice("Please select at least one item to download as a PDF!");
+          setTimeout(() => setStatusNotice(""), 3000);
+          return;
+        }
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        // Header Styling
+        doc.setFillColor(16, 185, 129); // Emerald-600
+        doc.rect(0, 0, 210, 28, "F");
+
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(18);
+        doc.text("AI Health & Diet Tracker", 14, 18);
+
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text("Grocery Checklist", 175, 18, { align: "right" });
+
+        // Metadata Subheader
+        doc.setTextColor(100, 116, 139);
+        doc.setFontSize(10);
+        doc.text(`Plan: ${currentPlan.profile.goal} (${currentPlan.profile.dietaryRestrictions || "Standard"})`, 14, 38);
+        doc.text(`Generated: ${new Date().toLocaleDateString()}`, 196, 38, { align: "right" });
+
+        doc.setDrawColor(226, 232, 240);
+        doc.line(14, 43, 196, 43);
+
+        let yPos = 52;
 
         Object.entries(categorized).forEach(([category, items]) => {
           const filteredItems = onlySelected
@@ -473,33 +508,42 @@ Current User Context: Goal=${currentPlan?.profile?.goal || 'Health'}, Weight=${c
             : items;
 
           if (filteredItems.length > 0) {
-            fileContent += `[ ${category.toUpperCase()} ]\n`;
+            if (yPos > 270) {
+              doc.addPage();
+              yPos = 20;
+            }
+
+            // Category Title
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(12);
+            doc.setTextColor(5, 150, 105);
+            doc.text(category.toUpperCase(), 14, yPos);
+            yPos += 7;
+
+            // Items list
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(11);
+            doc.setTextColor(30, 41, 59);
+
             filteredItems.forEach(item => {
-              const mark = groceryChecked[item] ? "[x]" : "[ ]";
-              fileContent += `${mark} ${item}\n`;
-              totalIncluded++;
+              if (yPos > 280) {
+                doc.addPage();
+                yPos = 20;
+              }
+              const mark = groceryChecked[item] ? "[X]" : "[  ]";
+              doc.text(`${mark}  ${item}`, 18, yPos);
+              yPos += 7;
             });
-            fileContent += `\n`;
+
+            yPos += 5;
           }
         });
 
-        if (totalIncluded === 0) {
-          setStatusNotice("Please select at least one item to download!");
-          setTimeout(() => setStatusNotice(""), 3000);
-          return;
-        }
+        // Save PDF
+        const filename = onlySelected ? "Selected_Grocery_List.pdf" : "Full_Grocery_List.pdf";
+        doc.save(filename);
 
-        const blob = new Blob([fileContent], { type: "text/plain;charset=utf-8" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = onlySelected ? "Selected_Grocery_List.txt" : "Full_Grocery_List.txt";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-
-        setStatusNotice(`Downloaded ${totalIncluded} grocery item${totalIncluded > 1 ? "s" : ""}!`);
+        setStatusNotice(`Downloaded ${filename} successfully!`);
         setTimeout(() => setStatusNotice(""), 3000);
       };
 
@@ -931,7 +975,7 @@ Current User Context: Goal=${currentPlan?.profile?.goal || 'Health'}, Weight=${c
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
                     <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">Grocery Checklist</h2>
-                    <p className="text-slate-600 text-sm mt-1">Select the items you need, then download your customized list.</p>
+                    <p className="text-slate-600 text-sm mt-1">Select items to shop for, then download your checklist as a PDF.</p>
                   </div>
 
                   {currentPlan && (
@@ -948,7 +992,7 @@ Current User Context: Goal=${currentPlan?.profile?.goal || 'Health'}, Weight=${c
                       )}
 
                       <button
-                        onClick={() => handleDownloadGrocery(true)}
+                        onClick={() => handleDownloadGroceryPDF(true)}
                         disabled={selectedGroceryCount === 0}
                         className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-sm ${
                           selectedGroceryCount > 0
@@ -957,16 +1001,16 @@ Current User Context: Goal=${currentPlan?.profile?.goal || 'Health'}, Weight=${c
                         }`}
                       >
                         <Icon name="download" size={15} />
-                        <span>Download Selected ({selectedGroceryCount})</span>
+                        <span>Download Selected PDF ({selectedGroceryCount})</span>
                       </button>
 
                       <button
-                        onClick={() => handleDownloadGrocery(false)}
+                        onClick={() => handleDownloadGroceryPDF(false)}
                         className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition flex items-center space-x-1.5"
-                        title="Download entire grocery list"
+                        title="Download full grocery list PDF"
                       >
                         <Icon name="file-text" size={15} />
-                        <span>Download All</span>
+                        <span>Download All PDF</span>
                       </button>
                     </div>
                   )}
