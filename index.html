@@ -62,6 +62,16 @@
       "Dairy-Free"
     ];
 
+    // --- Quick Prompts for AI Coach ---
+    const QUICK_PROMPTS = [
+      "Explain my current macros & calories",
+      "Suggest high-protein meal swaps",
+      "Healthy low-calorie snacks for cravings",
+      "How can I hit my daily protein target?",
+      "Budget-friendly alternatives for my meals",
+      "Best meal timing & hydration tips"
+    ];
+
     // --- Lucide Icon Wrapper Component ---
     function Icon({ name, size = 18, className = "" }) {
       const iconRef = useRef(null);
@@ -155,6 +165,94 @@
       };
     }
 
+    // --- Context-Aware Smart Coach Response Engine ---
+    function generateSmartCoachReply(question, currentPlan) {
+      const q = question.toLowerCase();
+      const goal = currentPlan?.profile?.goal || "overall fitness";
+      const weight = currentPlan?.profile?.weight || 70;
+      const diet = currentPlan?.profile?.dietaryRestrictions || "Standard";
+      const isVeg = (diet.toLowerCase().includes("vegetarian") && !diet.toLowerCase().includes("non-vegetarian")) || diet.toLowerCase().includes("vegan");
+      const cal = currentPlan?.summary?.calories || 2000;
+      const pro = currentPlan?.summary?.protein || 130;
+      const carbs = currentPlan?.summary?.carbs || 200;
+      const fats = currentPlan?.summary?.fats || 60;
+      const water = currentPlan?.summary?.waterLiters || 2.5;
+      const meals = currentPlan?.meals || [];
+
+      if (q.includes("macro") || q.includes("explain") || q.includes("calorie") || q.includes("breakdown") || q.includes("my plan")) {
+        return `Here is how your ${cal} kcal daily target supports your "${goal}" goal (${diet}):\n\n` +
+          `• Protein (${pro}g / ${Math.round((pro * 4 / cal) * 100)}%): Preserves and builds lean muscle tissue while keeping you full longer.\n` +
+          `• Carbs (${carbs}g / ${Math.round((carbs * 4 / cal) * 100)}%): Fuels workouts, brain focus, and daily energy without crashes.\n` +
+          `• Healthy Fats (${fats}g / ${Math.round((fats * 9 / cal) * 100)}%): Supports hormone balance and fat-soluble vitamin absorption.\n` +
+          `• Hydration (${water}L): Tailored to your ${weight} kg body weight for optimal metabolism.`;
+      }
+
+      if (q.includes("swap") || q.includes("substitute") || q.includes("replace") || q.includes("alternative") || q.includes("instead")) {
+        const mealNames = meals.map(m => `${m.type}: ${m.name}`).join("\n• ");
+        if (isVeg) {
+          return `Smart ${diet} swaps that match your ${pro}g protein target:\n\n` +
+            `• Breakfast: Swap Greek yogurt/toast with scrambled tofu bhurji + multigrain roti, or overnight oats with chia & protein powder.\n` +
+            `• Lunch: Swap quinoa/chickpeas with grilled paneer or soya chunks stir-fry with brown rice.\n` +
+            `• Dinner: Swap lentil curry with moong dal chilla or black bean & veggie bowl.\n\n` +
+            (mealNames ? `Your current meals:\n• ${mealNames}` : "");
+        }
+        return `Smart swaps tailored to your ${diet} plan (${cal} kcal):\n\n` +
+          `• Breakfast: Swap eggs/oats with Greek yogurt parfait + whey/plant protein, or egg-white veggie omelet with whole-wheat toast.\n` +
+          `• Lunch: Swap chicken breast with grilled fish, lean turkey, or tofu/paneer bowl.\n` +
+          `• Dinner: Swap salmon with grilled chicken thighs, shrimp stir-fry, or lentil & egg curry.\n\n` +
+          (mealNames ? `Your current meals:\n• ${mealNames}` : "");
+      }
+
+      if (q.includes("protein") || q.includes("muscle") || q.includes("hit my")) {
+        const perMeal = Math.round(pro / 4);
+        return `To comfortably hit ${pro}g of protein per day:\n\n` +
+          `• Aim for ~${perMeal}g of protein in each of your 4 meals instead of loading it all at dinner.\n` +
+          (isVeg
+            ? `• Top ${diet} sources: Soya chunks (52g/100g), low-fat paneer (18g/100g), Greek yogurt (10g/100g), lentils/dal, tofu, and whey/plant protein.\n`
+            : `• Top ${diet} sources: Chicken breast (31g/100g), eggs (6g each), fish/salmon (22g/100g), Greek yogurt, cottage cheese/paneer, and whey protein.\n`) +
+          `• Pro tip: Eat your protein portion first at every meal to boost satiety.`;
+      }
+
+      if (q.includes("snack") || q.includes("hungry") || q.includes("craving") || q.includes("sweet") || q.includes("night")) {
+        return `Best low-calorie, high-satiety snacks that won't derail your ${cal} kcal budget:\n\n` +
+          `• Savory crunch (~100 kcal): Roasted makhana (fox nuts), cucumber & carrot sticks with 2 tbsp hummus, or air-popped popcorn.\n` +
+          `• Sweet craving (~130 kcal): 150g Greek yogurt with cinnamon & berries, or 1 square (85%) dark chocolate with 5 almonds.\n` +
+          `• Hunger check: Drink a full glass of water and wait 10 minutes—mild dehydration often mimics hunger.`;
+      }
+
+      if (q.includes("budget") || q.includes("cheap") || q.includes("cost") || q.includes("affordable") || q.includes("money")) {
+        return `How to follow your ${goal} plan on a student/budget-friendly grocery bill:\n\n` +
+          `• Swap expensive grains (quinoa) for oats, brown rice, or whole-wheat rotis.\n` +
+          `• Swap berries & asparagus for seasonal local vegetables (spinach, carrots, cabbage, bell peppers) and bananas.\n` +
+          (isVeg
+            ? `• Best budget proteins: Soya chunks, whole moong/chana, lentils (dal), peanuts, and curd.\n`
+            : `• Best budget proteins: Whole eggs, chicken breast bought in bulk, lentils, and curd.\n`) +
+          `• Batch-cook grains and lentils for 2–3 days at once to save both money and prep time.`;
+      }
+
+      if (q.includes("time") || q.includes("timing") || q.includes("when") || q.includes("water") || q.includes("hydrat") || q.includes("workout") || q.includes("pre") || q.includes("post")) {
+        return `Optimal meal timing & hydration schedule for your ${goal} plan:\n\n` +
+          `• Morning (7:30–8:30 AM): Drink 500ml water on waking, followed by breakfast within 60–90 minutes.\n` +
+          `• Pre-Workout (45–60 min before): Have a light carb + protein snack (e.g., banana + handful of almonds or your afternoon smoothie).\n` +
+          `• Post-Workout (within 60 min): Eat your highest-protein meal (${meals[1]?.name || "Lunch"}) to maximize recovery.\n` +
+          `• Evening: Finish dinner at least 2.5 hours before bed and spread ${water}L of water steadily across the day.`;
+      }
+
+      if (q.includes("weight loss") || q.includes("lose weight") || q.includes("fat loss") || q.includes("plateau")) {
+        return `Key habits to accelerate fat loss on your ${cal} kcal plan:\n\n` +
+          `• Keep protein high at ${pro}g/day so you lose fat rather than muscle.\n` +
+          `• Watch hidden liquid calories (sugary tea/coffee, juices) and cooking oils—measure oils with a teaspoon.\n` +
+          `• Add 7,000–10,000 daily steps alongside your workouts to increase calorie burn without spiking hunger.`;
+      }
+
+      // General fallback tailored to user's actual current plan
+      const firstMeal = meals[0]?.name || "a balanced high-protein breakfast";
+      return `For your ${goal} goal (${cal} kcal/day, ${diet}):\n\n` +
+        `• Daily Targets: ${pro}g protein, ${carbs}g carbs, ${fats}g fats, and ${water}L water.\n` +
+        `• Start Strong: Stick with ${firstMeal} to stabilize blood sugar and curb afternoon cravings.\n` +
+        `• Need specifics? Ask me about meal swaps, hitting your ${pro}g protein goal, budget groceries, or healthy snacks!`;
+    }
+
     // --- Main React Application Component ---
     function App() {
       const [activeTab, setActiveTab] = useState("generator");
@@ -184,7 +282,7 @@
 
       // Chatbot State
       const [chatMessages, setChatMessages] = useState([
-        { sender: "ai", text: "Hello! I am your AI Health & Nutrition Coach powered by Gemini 1.5 Flash. Ask me anything about meal swaps, recipe ideas, or adjusting your macro targets!" }
+        { sender: "ai", text: "Hello! I am your AI Health & Nutrition Coach. Tap a quick prompt below or ask me anything about your meal plan, macro targets, swaps, or cravings!" }
       ]);
       const [chatInput, setChatInput] = useState("");
       const [isChatThinking, setIsChatThinking] = useState(false);
@@ -231,7 +329,7 @@
         setFormData(prev => ({ ...prev, [field]: value }));
       };
 
-      // Call Gemini 1.5 Flash API to Generate Diet Plan
+      // Call Gemini API to Generate Diet Plan
       const handleGeneratePlan = async (e) => {
         e.preventDefault();
         setIsGenerating(true);
@@ -314,7 +412,7 @@ Return ONLY a valid JSON object with this EXACT structure (no markdown fences ar
   "tips": ["Tip 1", "Tip 2", "Tip 3"]
 }`;
 
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`;
             const response = await fetch(apiUrl, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -372,27 +470,41 @@ Return ONLY a valid JSON object with this EXACT structure (no markdown fences ar
         }, 1000);
       };
 
-      // Call Gemini 1.5 Flash for the AI Nutritionist Coach Chat
-      const handleSendChatMessage = async (e) => {
-        e.preventDefault();
-        if (!chatInput.trim()) return;
+      // Unified Send Message Handler (used by both form submit & quick prompts)
+      const sendCoachQuestion = async (rawQuestion) => {
+        const userText = (rawQuestion || "").trim();
+        if (!userText || isChatThinking) return;
 
-        const userText = chatInput.trim();
-        setChatMessages(prev => [...prev, { sender: "user", text: userText }]);
+        const updatedHistory = [...chatMessages, { sender: "user", text: userText }];
+        setChatMessages(updatedHistory);
         setChatInput("");
         setIsChatThinking(true);
 
         if (apiKey) {
           try {
-            const systemPrompt = `You are an expert, highly empathetic, and professional AI Nutritionist and Health Coach. Give clear, concise, practical, and customized advice using bullet points where helpful.
-Current User Context: Goal=${currentPlan?.profile?.goal || 'Health'}, Weight=${currentPlan?.profile?.weight || 70}kg, Dietary Restrictions=${currentPlan?.profile?.dietaryRestrictions || 'None'}. Keep responses under 200 words.`;
+            const planContext = currentPlan
+              ? `Active User Profile & Plan:
+- Age: ${currentPlan.profile.age}, Weight: ${currentPlan.profile.weight}kg, Height: ${currentPlan.profile.height}cm
+- Goal: ${currentPlan.profile.goal}
+- Dietary Preference: ${currentPlan.profile.dietaryRestrictions || "None"}
+- Daily Targets: ${currentPlan.summary.calories} kcal, ${currentPlan.summary.protein}g protein, ${currentPlan.summary.carbs}g carbs, ${currentPlan.summary.fats}g fats, ${currentPlan.summary.waterLiters}L water
+- Current Meals: ${(currentPlan.meals || []).map(m => `${m.type} (${m.name} - ${m.calories} kcal, ${m.protein} protein)`).join("; ")}`
+              : "No active plan generated yet.";
 
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+            const systemPrompt = `You are an expert, practical AI Nutritionist and Health Coach. Directly answer the user's specific question using their active diet plan and profile details. Use clear bullet points, exact numbers, and actionable food options. Keep responses concise (under 200 words) and avoid markdown asterisks for bolding so plain text renders cleanly.\n\n${planContext}`;
+
+            // Include recent conversation turns for proper multi-turn follow-up context
+            const conversationContents = updatedHistory.slice(-6).map(msg => ({
+              role: msg.sender === "user" ? "user" : "model",
+              parts: [{ text: msg.text }]
+            }));
+
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`;
             const response = await fetch(apiUrl, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                contents: [{ parts: [{ text: userText }] }],
+                contents: conversationContents,
                 systemInstruction: { parts: [{ text: systemPrompt }] }
               })
             });
@@ -401,7 +513,7 @@ Current User Context: Goal=${currentPlan?.profile?.goal || 'Health'}, Weight=${c
               const result = await response.json();
               const replyText = result.candidates?.[0]?.content?.parts?.[0]?.text;
               if (replyText) {
-                setChatMessages(prev => [...prev, { sender: "ai", text: replyText }]);
+                setChatMessages(prev => [...prev, { sender: "ai", text: replyText.replace(/\*\*/g, "") }]);
                 setIsChatThinking(false);
                 return;
               }
@@ -411,24 +523,27 @@ Current User Context: Goal=${currentPlan?.profile?.goal || 'Health'}, Weight=${c
           }
         }
 
-        // Local Smart Chatbot Fallback
+        // Local Context-Aware Smart Fallback
         setTimeout(() => {
-          let reply = "That is a great nutrition question! ";
-          const lower = userText.toLowerCase();
-
-          if (lower.includes("swap") || lower.includes("substitute") || lower.includes("replace")) {
-            reply += "For high-protein breakfasts, you can swap eggs with silken tofu scrambled with turmeric, or Greek yogurt mixed with plant protein. For chicken, roasted chickpeas or paneer/tofu make ideal nutritional substitutes!";
-          } else if (lower.includes("budget") || lower.includes("cheap") || lower.includes("cost")) {
-            reply += "To keep your meals budget-friendly, buy staples like lentils, oats, frozen berries, canned beans, and seasonal green veggies in bulk.";
-          } else if (lower.includes("snack") || lower.includes("hungry") || lower.includes("cravings")) {
-            reply += "If you feel hungry between meals, opt for low-calorie high-volume options like sliced cucumbers with hummus, a hand of raw almonds, or a cup of green tea.";
-          } else {
-            reply += `To maximize your goal of ${currentPlan?.profile?.goal || "overall fitness"}, focus on meeting your target ${currentPlan?.summary?.protein || 120}g of protein daily and drinking ${currentPlan?.summary?.waterLiters || 2.5}L of water.`;
-          }
-
+          const reply = generateSmartCoachReply(userText, currentPlan);
           setChatMessages(prev => [...prev, { sender: "ai", text: reply }]);
           setIsChatThinking(false);
-        }, 800);
+        }, 500);
+      };
+
+      const handleSendChatMessage = (e) => {
+        e.preventDefault();
+        sendCoachQuestion(chatInput);
+      };
+
+      const handleQuickPromptClick = (promptText) => {
+        sendCoachQuestion(promptText);
+      };
+
+      const handleClearChat = () => {
+        setChatMessages([
+          { sender: "ai", text: "Chat cleared! Tap a quick prompt below or ask me any question about your diet plan." }
+        ]);
       };
 
       const getCategorizedGrocery = () => {
@@ -455,6 +570,10 @@ Current User Context: Goal=${currentPlan?.profile?.goal || 'Health'}, Weight=${c
           "Proteins & Dairy": Array.from(proteinDairy),
           "Pantry, Grains & Oils": Array.from(pantryGrains)
         };
+      };
+
+      const toggleGroceryItem = (item) => {
+        setGroceryChecked(prev => ({ ...prev, [item]: !prev[item] }));
       };
 
       // Download Selected (or All) Grocery Items as a Formatted PDF
@@ -744,415 +863,397 @@ Current User Context: Goal=${currentPlan?.profile?.goal || 'Health'}, Weight=${c
                     <button
                       type="submit"
                       disabled={isGenerating}
-                      className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-lg shadow-emerald-200 transition-all flex items-center justify-center space-x-2 text-base mt-4"
+                      className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold rounded-xl shadow-lg shadow-emerald-200 transition-all flex items-center justify-center space-x-2 text-sm sm:text-base"
                     >
-                      {isGenerating ? (
-                        <>
-                          <Icon name="loader-2" size={20} className="animate-spin" />
-                          <span>Generating Plan via Gemini 1.5 Flash...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Icon name="sparkles" size={20} />
-                          <span>Generate & Save Diet Plan</span>
-                        </>
-                      )}
+                      <Icon name={isGenerating ? "loader-2" : "sparkles"} size={18} className={isGenerating ? "animate-spin" : ""} />
+                      <span>{isGenerating ? "Generating Your Plan..." : "Generate Personalized Diet Plan"}</span>
                     </button>
                   </form>
                 </div>
               </div>
             )}
 
-            {/* 2. DIET PLAN RENDER VIEW */}
+            {/* 2. DIET PLAN VIEW */}
             {activeTab === "plan" && (
-              currentPlan ? (
-                <div className="space-y-8 max-w-5xl mx-auto">
-
-                  <div className="bg-gradient-to-r from-emerald-800 to-teal-900 rounded-2xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
-                    <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div>
+                {!currentPlan ? (
+                  <div className="glass-card rounded-2xl p-10 text-center max-w-lg mx-auto">
+                    <p className="text-slate-600 font-medium mb-4">No diet plan generated yet.</p>
+                    <button
+                      onClick={() => setActiveTab("generator")}
+                      className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm transition"
+                    >
+                      Create a Plan
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-8">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                       <div>
-                        <div className="flex items-center space-x-2 text-emerald-300 text-xs font-bold uppercase tracking-widest mb-1">
-                          <Icon name="check-circle-2" size={14} />
-                          <span>Active Diet Plan</span>
-                        </div>
-                        <h2 className="text-2xl sm:text-3xl font-extrabold">{currentPlan.profile.goal} Blueprint</h2>
-                        <p className="text-emerald-100 text-sm mt-1">
-                          Created on {currentPlan.date} • {currentPlan.profile.age} yrs, {currentPlan.profile.weight} kg ({currentPlan.profile.dietaryRestrictions || "Standard Diet"})
-                        </p>
+                        <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 mb-2">
+                          {currentPlan.profile.goal} • {currentPlan.profile.dietaryRestrictions || "Standard"}
+                        </span>
+                        <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">Your Daily Nutrition Breakdown</h2>
+                        <p className="text-xs text-slate-500 mt-1">Generated on {currentPlan.date}</p>
                       </div>
-
-                      <div className="flex flex-wrap gap-2.5">
+                      <div className="flex flex-wrap gap-2">
                         <button
                           onClick={() => setActiveTab("chat")}
-                          className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold backdrop-blur-md transition flex items-center space-x-1.5"
+                          className="px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-sm font-bold rounded-xl flex items-center space-x-2 transition"
                         >
                           <Icon name="bot" size={16} />
                           <span>Ask AI Coach</span>
                         </button>
                         <button
                           onClick={() => setActiveTab("grocery")}
-                          className="px-4 py-2 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold rounded-xl text-xs transition flex items-center space-x-1.5 shadow-md"
+                          className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold rounded-xl flex items-center space-x-2 transition"
                         >
                           <Icon name="shopping-bag" size={16} />
-                          <span>Grocery Checklist</span>
+                          <span>View Grocery List</span>
                         </button>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Summary Metric Cards */}
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-                    {[
-                      { label: "Daily Calories", val: `${currentPlan.summary.calories} kcal`, icon: "flame", color: "text-amber-600 bg-amber-50" },
-                      { label: "Protein Target", val: `${currentPlan.summary.protein}g`, icon: "dumbbell", color: "text-blue-600 bg-blue-50" },
-                      { label: "Carbohydrates", val: `${currentPlan.summary.carbs}g`, icon: "wheat", color: "text-emerald-600 bg-emerald-50" },
-                      { label: "Healthy Fats", val: `${currentPlan.summary.fats}g`, icon: "droplet", color: "text-purple-600 bg-purple-50" },
-                      { label: "Water Intake", val: `${currentPlan.summary.waterLiters} L`, icon: "glass-water", color: "text-cyan-600 bg-cyan-50" }
-                    ].map((stat, i) => (
-                      <div key={i} className="glass-card rounded-2xl p-4 shadow-sm flex flex-col justify-between">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-bold text-slate-500 uppercase">{stat.label}</span>
-                          <div className={`p-2 rounded-xl ${stat.color}`}>
-                            <Icon name={stat.icon} size={18} />
-                          </div>
-                        </div>
-                        <span className="text-xl sm:text-2xl font-extrabold text-slate-900">{stat.val}</span>
+                    {/* Macro Summary Cards */}
+                    <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                      <div className="glass-card rounded-2xl p-4">
+                        <p className="text-xs font-bold uppercase text-slate-400">Daily Calories</p>
+                        <p className="text-2xl font-extrabold text-slate-900 mt-1">{currentPlan.summary.calories} <span className="text-xs font-semibold text-slate-500">kcal</span></p>
                       </div>
-                    ))}
-                  </div>
+                      <div className="glass-card rounded-2xl p-4">
+                        <p className="text-xs font-bold uppercase text-emerald-600">Protein</p>
+                        <p className="text-2xl font-extrabold text-slate-900 mt-1">{currentPlan.summary.protein}g</p>
+                      </div>
+                      <div className="glass-card rounded-2xl p-4">
+                        <p className="text-xs font-bold uppercase text-sky-600">Carbs</p>
+                        <p className="text-2xl font-extrabold text-slate-900 mt-1">{currentPlan.summary.carbs}g</p>
+                      </div>
+                      <div className="glass-card rounded-2xl p-4">
+                        <p className="text-xs font-bold uppercase text-amber-600">Fats</p>
+                        <p className="text-2xl font-extrabold text-slate-900 mt-1">{currentPlan.summary.fats}g</p>
+                      </div>
+                      <div className="glass-card rounded-2xl p-4 col-span-2 lg:col-span-1">
+                        <p className="text-xs font-bold uppercase text-teal-600">Water Intake</p>
+                        <p className="text-2xl font-extrabold text-slate-900 mt-1">{currentPlan.summary.waterLiters}L</p>
+                      </div>
+                    </div>
 
-                  {/* Meals List */}
-                  <div className="space-y-4">
-                    <h3 className="text-xl font-bold text-slate-900 flex items-center space-x-2">
-                      <Icon name="utensils" size={20} className="text-emerald-600" />
-                      <span>Daily Meal Schedule</span>
-                    </h3>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {currentPlan.meals.map((meal, idx) => (
-                        <div key={idx} className="glass-card rounded-2xl p-6 shadow-sm flex flex-col justify-between border border-slate-200 hover:border-emerald-300 transition">
+                    {/* Meals Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {(currentPlan.meals || []).map((meal, idx) => (
+                        <div key={idx} className="glass-card rounded-2xl p-6 flex flex-col justify-between">
                           <div>
-                            <div className="flex items-center justify-between mb-3">
-                              <span className="px-3 py-1 bg-emerald-50 text-emerald-800 text-xs font-bold rounded-full">
-                                {meal.type} • {meal.time}
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg">
+                                {meal.type}
                               </span>
-                              <span className="text-xs font-extrabold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg">
-                                {meal.calories} kcal
-                              </span>
+                              <span className="text-xs font-semibold text-slate-500">{meal.time}</span>
                             </div>
-                            <h4 className="text-base sm:text-lg font-bold text-slate-900 mb-2">{meal.name}</h4>
+                            <h3 className="text-lg font-bold text-slate-900">{meal.name}</h3>
+                            <p className="text-sm font-bold text-slate-600 mt-1">{meal.calories} kcal</p>
 
-                            <div className="flex items-center space-x-3 text-xs font-semibold text-slate-600 mb-4 bg-slate-50 p-2.5 rounded-xl">
-                              <span>P: <strong className="text-slate-900">{meal.protein}</strong></span>
-                              <span>•</span>
-                              <span>C: <strong className="text-slate-900">{meal.carbs}</strong></span>
-                              <span>•</span>
-                              <span>F: <strong className="text-slate-900">{meal.fats}</strong></span>
+                            <div className="flex flex-wrap gap-2 mt-3 text-xs font-semibold text-slate-600">
+                              <span className="bg-slate-100 px-2.5 py-1 rounded-lg">Protein: {meal.protein}</span>
+                              <span className="bg-slate-100 px-2.5 py-1 rounded-lg">Carbs: {meal.carbs}</span>
+                              <span className="bg-slate-100 px-2.5 py-1 rounded-lg">Fats: {meal.fats}</span>
                             </div>
+                          </div>
 
-                            <div className="space-y-1.5">
-                              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Ingredients:</span>
+                          {meal.ingredients && meal.ingredients.length > 0 && (
+                            <div className="mt-4 pt-4 border-t border-slate-100">
+                              <p className="text-xs font-bold uppercase text-slate-400 mb-2">Ingredients</p>
                               <div className="flex flex-wrap gap-1.5">
-                                {(meal.ingredients || []).map((ing, iIdx) => (
-                                  <span key={iIdx} className="text-xs bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg font-medium">
+                                {meal.ingredients.map((ing, i) => (
+                                  <span key={i} className="text-xs bg-emerald-50/70 text-emerald-900 px-2.5 py-0.5 rounded-full border border-emerald-100">
                                     {ing}
                                   </span>
                                 ))}
                               </div>
                             </div>
-                          </div>
+                          )}
                         </div>
                       ))}
                     </div>
+
+                    {/* Daily Tips */}
+                    {currentPlan.tips && currentPlan.tips.length > 0 && (
+                      <div className="glass-card rounded-2xl p-6">
+                        <h3 className="text-base font-bold text-slate-900 mb-3 flex items-center space-x-2">
+                          <Icon name="lightbulb" size={18} className="text-amber-500" />
+                          <span>Coach Tips for Today</span>
+                        </h3>
+                        <ul className="space-y-2 text-sm text-slate-600">
+                          {currentPlan.tips.map((tip, idx) => (
+                            <li key={idx} className="flex items-start space-x-2">
+                              <span className="text-emerald-600 font-bold">•</span>
+                              <span>{tip}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
-
-                  {/* Pro Tips */}
-                  {currentPlan.tips && currentPlan.tips.length > 0 && (
-                    <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-6">
-                      <h4 className="font-bold text-emerald-900 text-base mb-3 flex items-center space-x-2">
-                        <Icon name="lightbulb" size={20} className="text-emerald-700" />
-                        <span>AI Nutritionist Pro Tips</span>
-                      </h4>
-                      <ul className="space-y-2">
-                        {currentPlan.tips.map((tip, tIdx) => (
-                          <li key={tIdx} className="flex items-start space-x-2 text-sm text-emerald-800 font-medium">
-                            <span className="text-emerald-600 font-bold">•</span>
-                            <span>{tip}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                </div>
-              ) : (
-                <div className="text-center py-16">
-                  <p className="text-slate-500 font-medium mb-4">No active diet plan found.</p>
-                  <button
-                    onClick={() => setActiveTab("generator")}
-                    className="px-6 py-3 bg-emerald-600 text-white font-bold rounded-xl shadow-md"
-                  >
-                    Generate a Plan Now
-                  </button>
-                </div>
-              )
+                )}
+              </div>
             )}
 
-            {/* 3. AI COACH CHATBOT VIEW */}
+            {/* 3. AI NUTRITION COACH CHAT */}
             {activeTab === "chat" && (
-              <div className="max-w-3xl mx-auto flex flex-col h-[75vh] glass-card rounded-2xl shadow-xl overflow-hidden">
-                <div className="bg-slate-900 text-white p-4 px-6 flex items-center justify-between">
+              <div className="max-w-3xl mx-auto glass-card rounded-2xl shadow-xl flex flex-col h-[76vh]">
+                <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between gap-2">
                   <div className="flex items-center space-x-3">
-                    <div className="w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center text-white">
-                      <Icon name="bot" size={20} />
+                    <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                      <Icon name="bot" size={22} />
                     </div>
                     <div>
-                      <h3 className="font-bold text-base">Gemini 1.5 Nutrition Coach</h3>
-                      <p className="text-xs text-slate-400">Ready for meal swaps & macro adjustments</p>
+                      <h2 className="font-bold text-slate-900">AI Nutrition Coach</h2>
+                      <p className="text-xs text-slate-500">
+                        {currentPlan
+                          ? `Synced with your ${currentPlan.profile.goal} plan (${currentPlan.summary.calories} kcal • ${currentPlan.profile.dietaryRestrictions})`
+                          : "Ask about meal swaps, cravings, or macro adjustments"}
+                      </p>
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={handleClearChat}
+                    className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition shrink-0"
+                    title="Clear conversation"
+                  >
+                    Clear Chat
+                  </button>
                 </div>
 
+                {/* Chat Message Feed */}
                 <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 custom-scrollbar">
-                  {chatMessages.map((msg, index) => (
-                    <div
-                      key={index}
-                      className={`flex items-start space-x-3 ${msg.sender === "user" ? "flex-row-reverse space-x-reverse" : ""}`}
-                    >
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                        msg.sender === "user" ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-700"
-                      }`}>
-                        <Icon name={msg.sender === "user" ? "user" : "bot"} size={16} />
-                      </div>
-                      <div className={`max-w-[80%] p-4 rounded-2xl text-sm font-medium ${
+                  {chatMessages.map((msg, idx) => (
+                    <div key={idx} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
+                      <div className={`max-w-[85%] sm:max-w-[78%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-line ${
                         msg.sender === "user"
-                          ? "bg-emerald-600 text-white rounded-tr-none"
-                          : "bg-slate-100 text-slate-800 rounded-tl-none border border-slate-200"
+                          ? "bg-emerald-600 text-white font-medium shadow-xs"
+                          : "bg-slate-100 text-slate-800 border border-slate-200/70"
                       }`}>
                         {msg.text}
                       </div>
                     </div>
                   ))}
-
                   {isChatThinking && (
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 rounded-xl bg-slate-200 text-slate-700 flex items-center justify-center">
-                        <Icon name="bot" size={16} />
-                      </div>
-                      <div className="bg-slate-100 p-3 rounded-2xl text-xs text-slate-500 flex items-center space-x-2">
-                        <Icon name="loader-2" size={16} className="animate-spin" />
-                        <span>Coach is thinking...</span>
+                    <div className="flex justify-start">
+                      <div className="bg-slate-100 text-slate-500 rounded-2xl px-4 py-2.5 text-xs font-semibold flex items-center space-x-1.5">
+                        <Icon name="loader-2" size={14} className="animate-spin text-emerald-600" />
+                        <span>Coach is analyzing your plan...</span>
                       </div>
                     </div>
                   )}
                   <div ref={chatEndRef} />
                 </div>
 
-                <form onSubmit={handleSendChatMessage} className="p-4 bg-white border-t border-slate-200 flex items-center space-x-2">
+                {/* Quick Prompts Bar */}
+                <div className="px-3 sm:px-4 pt-2.5 pb-1.5 border-t border-slate-100 bg-slate-50/70">
+                  <div className="flex items-center space-x-1.5 mb-1.5">
+                    <Icon name="sparkles" size={13} className="text-emerald-600" />
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Quick Prompts</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto custom-scrollbar pb-1">
+                    {QUICK_PROMPTS.map((promptText, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        disabled={isChatThinking}
+                        onClick={() => handleQuickPromptClick(promptText)}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-full bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border border-slate-200 hover:border-emerald-300 disabled:opacity-50 transition shadow-2xs"
+                      >
+                        {promptText}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Chat Input Bar */}
+                <form onSubmit={handleSendChatMessage} className="p-3 sm:p-4 border-t border-slate-200 bg-white rounded-b-2xl flex items-center space-x-2">
                   <input
                     type="text"
-                    placeholder="Ask about meal swaps, calories, or recipes..."
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
-                    className="flex-1 px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none text-sm font-medium"
+                    placeholder="Ask any nutrition question (e.g., What can I eat instead of quinoa?)..."
+                    className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   />
                   <button
                     type="submit"
-                    className="p-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-md transition"
+                    disabled={isChatThinking || !chatInput.trim()}
+                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-xl text-sm flex items-center space-x-1 transition"
                   >
-                    <Icon name="send" size={18} />
+                    <Icon name="send" size={16} />
+                    <span className="hidden sm:inline">Send</span>
                   </button>
                 </form>
               </div>
             )}
 
-            {/* 4. GROCERY LIST VIEW */}
+            {/* 4. GROCERY CHECKLIST VIEW */}
             {activeTab === "grocery" && (
-              <div className="max-w-3xl mx-auto space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">Grocery Checklist</h2>
-                    <p className="text-slate-600 text-sm mt-1">Select items to shop for, then download your checklist as a PDF.</p>
-                  </div>
-
-                  {currentPlan && (
-                    <div className="flex flex-wrap items-center gap-2">
-                      {selectedGroceryCount > 0 && (
-                        <button
-                          onClick={() => setGroceryChecked({})}
-                          className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition flex items-center space-x-1.5"
-                          title="Clear all selections"
-                        >
-                          <Icon name="rotate-ccw" size={14} />
-                          <span>Clear</span>
-                        </button>
-                      )}
-
-                      <button
-                        onClick={() => handleDownloadGroceryPDF(true)}
-                        disabled={selectedGroceryCount === 0}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-sm ${
-                          selectedGroceryCount > 0
-                            ? "bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
-                            : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
-                        }`}
-                      >
-                        <Icon name="download" size={15} />
-                        <span>Download Selected PDF ({selectedGroceryCount})</span>
-                      </button>
-
-                      <button
-                        onClick={() => handleDownloadGroceryPDF(false)}
-                        className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition flex items-center space-x-1.5"
-                        title="Download full grocery list PDF"
-                      >
-                        <Icon name="file-text" size={15} />
-                        <span>Download All PDF</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {currentPlan ? (
-                  <div className="space-y-6">
-                    {Object.entries(getCategorizedGrocery()).map(([category, items], cIdx) => (
-                      items.length > 0 && (
-                        <div key={cIdx} className="glass-card rounded-2xl p-6 shadow-sm">
-                          <h3 className="font-bold text-base text-emerald-800 mb-4 flex items-center space-x-2">
-                            <Icon name="shopping-bag" size={18} />
-                            <span>{category}</span>
-                          </h3>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {items.map((item, iIdx) => {
-                              const isChecked = groceryChecked[item] || false;
-                              return (
-                                <div
-                                  key={iIdx}
-                                  onClick={() => setGroceryChecked(prev => ({ ...prev, [item]: !isChecked }))}
-                                  className={`flex items-center space-x-3 p-3 rounded-xl border cursor-pointer transition ${
-                                    isChecked
-                                      ? "bg-emerald-50/70 border-emerald-400 text-emerald-950"
-                                      : "bg-slate-50 border-slate-200 text-slate-800 hover:border-emerald-300"
-                                  }`}
-                                >
-                                  <div className={`w-5 h-5 rounded-lg border flex items-center justify-center transition ${
-                                    isChecked ? "bg-emerald-600 border-emerald-600 text-white" : "border-slate-300 bg-white"
-                                  }`}>
-                                    {isChecked && <Icon name="check" size={14} />}
-                                  </div>
-                                  <span className="text-sm font-semibold">{item}</span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )
-                    ))}
+              <div className="max-w-3xl mx-auto">
+                {!currentPlan ? (
+                  <div className="glass-card rounded-2xl p-10 text-center">
+                    <p className="text-slate-600 mb-4">Generate a diet plan first to build your grocery checklist.</p>
+                    <button
+                      onClick={() => setActiveTab("generator")}
+                      className="px-5 py-2.5 bg-emerald-600 text-white font-bold rounded-xl text-sm"
+                    >
+                      Go to Generator
+                    </button>
                   </div>
                 ) : (
-                  <div className="text-center py-16 glass-card rounded-2xl">
-                    <p className="text-slate-500 font-medium">Please generate a diet plan first to view your grocery checklist.</p>
+                  <div className="glass-card rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 pb-5">
+                      <div>
+                        <h2 className="text-2xl font-extrabold text-slate-900">Smart Grocery List</h2>
+                        <p className="text-xs text-slate-500 mt-1">
+                          {selectedGroceryCount} item{selectedGroceryCount === 1 ? "" : "s"} checked for your {currentPlan.profile.goal} plan
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => handleDownloadGroceryPDF(true)}
+                          className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center space-x-1.5 transition"
+                        >
+                          <Icon name="download" size={15} />
+                          <span>PDF ({selectedGroceryCount} Selected)</span>
+                        </button>
+                        <button
+                          onClick={() => handleDownloadGroceryPDF(false)}
+                          className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl flex items-center space-x-1.5 transition"
+                        >
+                          <Icon name="file-text" size={15} />
+                          <span>Full List PDF</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-6">
+                      {Object.entries(getCategorizedGrocery()).map(([category, items]) => (
+                        items.length > 0 && (
+                          <div key={category}>
+                            <h3 className="text-xs font-extrabold uppercase tracking-wider text-emerald-700 mb-3">
+                              {category}
+                            </h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                              {items.map((item) => {
+                                const checked = !!groceryChecked[item];
+                                return (
+                                  <label
+                                    key={item}
+                                    onClick={() => toggleGroceryItem(item)}
+                                    className={`flex items-center space-x-3 p-3 rounded-xl border cursor-pointer transition ${
+                                      checked
+                                        ? "bg-emerald-50/70 border-emerald-200 text-slate-500 line-through"
+                                        : "bg-slate-50 border-slate-200 text-slate-800 hover:bg-slate-100"
+                                    }`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      onChange={() => {}}
+                                      className="w-4 h-4 accent-emerald-600 rounded"
+                                    />
+                                    <span className="text-sm font-medium">{item}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
             )}
 
-            {/* 5. HISTORY VIEW */}
+            {/* 5. PLAN HISTORY VIEW */}
             {activeTab === "history" && (
-              <div className="max-w-3xl mx-auto space-y-6">
-                <div>
-                  <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">Saved Diet Plans</h2>
-                  <p className="text-slate-600 text-sm mt-1">Review or switch between your previously generated meal plans.</p>
-                </div>
-
-                <div className="space-y-4">
-                  {savedPlans.length > 0 ? (
-                    savedPlans.map(plan => (
-                      <div
-                        key={plan.id}
-                        onClick={() => {
-                          setCurrentPlan(plan);
-                          setGroceryChecked({});
-                          setActiveTab("plan");
-                        }}
-                        className={`glass-card rounded-2xl p-6 shadow-sm cursor-pointer border transition flex items-center justify-between ${
-                          currentPlan?.id === plan.id ? "border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-50/30" : "border-slate-200 hover:border-emerald-300"
-                        }`}
-                      >
-                        <div>
-                          <div className="flex items-center space-x-2 mb-1">
-                            <span className="font-extrabold text-lg text-slate-900">{plan.profile.goal}</span>
-                            {currentPlan?.id === plan.id && (
-                              <span className="text-xs bg-emerald-600 text-white font-bold px-2 py-0.5 rounded-full">Active</span>
-                            )}
-                          </div>
-                          <p className="text-xs text-slate-500 font-medium">
-                            Created on {plan.date} • {plan.summary.calories} kcal/day • {plan.profile.dietaryRestrictions || "Standard"}
-                          </p>
-                        </div>
-
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={(e) => handleDeletePlan(plan.id, e)}
-                            className="p-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition"
-                            title="Delete Plan"
-                          >
-                            <Icon name="trash-2" size={16} />
-                          </button>
-                        </div>
+              <div className="max-w-3xl mx-auto space-y-4">
+                <h2 className="text-2xl font-extrabold text-slate-900 mb-4">Saved Diet Plans</h2>
+                {savedPlans.length === 0 ? (
+                  <div className="glass-card rounded-2xl p-8 text-center text-slate-500 text-sm">
+                    No saved plans yet.
+                  </div>
+                ) : (
+                  savedPlans.map((plan) => (
+                    <div
+                      key={plan.id}
+                      onClick={() => {
+                        setCurrentPlan(plan);
+                        setGroceryChecked({});
+                        setActiveTab("plan");
+                      }}
+                      className={`glass-card rounded-2xl p-5 flex items-center justify-between cursor-pointer transition hover:border-emerald-400 ${
+                        currentPlan?.id === plan.id ? "ring-2 ring-emerald-500" : ""
+                      }`}
+                    >
+                      <div>
+                        <p className="font-bold text-slate-900">
+                          {plan.profile.goal} • <span className="text-emerald-700">{plan.summary.calories} kcal</span>
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          {plan.profile.dietaryRestrictions || "Standard"} • {plan.date}
+                        </p>
                       </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-16 glass-card rounded-2xl">
-                      <p className="text-slate-500 font-medium">No saved plans in your history.</p>
+                      <button
+                        onClick={(e) => handleDeletePlan(plan.id, e)}
+                        className="p-2 text-slate-400 hover:text-rose-600 rounded-lg transition"
+                        title="Delete Plan"
+                      >
+                        <Icon name="trash-2" size={18} />
+                      </button>
                     </div>
-                  )}
-                </div>
+                  ))
+                )}
               </div>
             )}
 
           </main>
 
-          {/* --- API KEY CONFIGURATION MODAL --- */}
+          {/* --- GEMINI API KEY MODAL --- */}
           {showKeyModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-              <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-2">
-                    <div className="p-2 rounded-xl bg-emerald-100 text-emerald-800">
-                      <Icon name="key" size={20} />
-                    </div>
-                    <h3 className="font-extrabold text-lg text-slate-900">Gemini API Key</h3>
-                  </div>
-                  <button onClick={() => setShowKeyModal(false)} className="text-slate-400 hover:text-slate-600">
+            <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-extrabold text-slate-900 flex items-center space-x-2">
+                    <Icon name="key" size={18} className="text-emerald-600" />
+                    <span>Gemini API Key</span>
+                  </h3>
+                  <button
+                    onClick={() => setShowKeyModal(false)}
+                    className="text-slate-400 hover:text-slate-700"
+                  >
                     <Icon name="x" size={20} />
                   </button>
                 </div>
-
-                <p className="text-xs text-slate-600 mb-4 leading-relaxed">
-                  Enter your Google Gemini API key to enable live AI-generated diet plans and conversational coaching. If left blank, the app runs on its built-in offline nutrition engine.
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Enter a Gemini API key to generate live AI meal plans and chat responses. Without a key, the app automatically uses its built-in nutrition engine. Your key is stored only in your browser.
                 </p>
-
                 <form onSubmit={handleSaveApiKey} className="space-y-4">
                   <input
                     type="password"
-                    placeholder="Paste Gemini API Key (AIzaSy...)"
                     value={tempApiKey}
                     onChange={(e) => setTempApiKey(e.target.value)}
-                    className="w-full px-3.5 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none text-sm font-mono text-slate-800"
+                    placeholder="AIza..."
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   />
-
-                  <div className="flex items-center justify-end space-x-3 pt-2">
+                  <div className="flex justify-end space-x-2">
                     <button
                       type="button"
-                      onClick={() => setShowKeyModal(false)}
-                      className="px-4 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl text-xs font-bold transition"
+                      onClick={() => {
+                        setTempApiKey("");
+                      }}
+                      className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl"
                     >
-                      Cancel
+                      Clear
                     </button>
                     <button
                       type="submit"
-                      className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md transition"
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl"
                     >
                       Save Key
                     </button>
@@ -1166,7 +1267,8 @@ Current User Context: Goal=${currentPlan?.profile?.goal || 'Health'}, Weight=${c
       );
     }
 
-    ReactDOM.render(<App />, document.getElementById("root"));
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
   </script>
 </body>
 </html>
